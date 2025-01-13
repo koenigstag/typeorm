@@ -23,7 +23,7 @@ import { CteCapabilities } from "../types/CteCapabilities"
 import { UpsertType } from "../types/UpsertType"
 
 /**
- * Organizes communication with BigQuery DBMS.
+ * Organizes communication with BigQuery
  */
 export class BigQueryDriver implements Driver {
     // -------------------------------------------------------------------------
@@ -231,7 +231,8 @@ export class BigQueryDriver implements Driver {
      * Creates a schema builder used to build and sync a schema.
      */
     createSchemaBuilder() {
-        return new RdbmsSchemaBuilder(this.connection)
+        // return new RdbmsSchemaBuilder(this.connection)
+        throw new Error('Not implemented');
     }
 
     /**
