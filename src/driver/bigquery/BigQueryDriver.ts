@@ -1,13 +1,13 @@
 import { Driver, ReturningType } from "../Driver"
 import { DriverPackageNotInstalledError } from "../../error/DriverPackageNotInstalledError"
-import { SpannerQueryRunner } from "./SpannerQueryRunner"
+import { BigQueryQueryRunner } from "./BigQueryQueryRunner"
 import { ObjectLiteral } from "../../common/ObjectLiteral"
 import { ColumnMetadata } from "../../metadata/ColumnMetadata"
 import { DateUtils } from "../../util/DateUtils"
 import { PlatformTools } from "../../platform/PlatformTools"
 import { Connection } from "../../connection/Connection"
 import { RdbmsSchemaBuilder } from "../../schema-builder/RdbmsSchemaBuilder"
-import { SpannerConnectionOptions } from "./SpannerConnectionOptions"
+import { BigQueryConnectionOptions } from "./BigQueryConnectionOptions"
 import { MappedColumnTypes } from "../types/MappedColumnTypes"
 import { ColumnType } from "../types/ColumnTypes"
 import { DataTypeDefaults } from "../types/DataTypeDefaults"
@@ -36,17 +36,17 @@ export class BigQueryDriver implements Driver {
     connection: Connection
 
     /**
-     * Cloud Spanner underlying library.
+     * Cloud BigQuery underlying library.
      */
-    spanner: any
+    bigquery: any
 
     /**
-     * Cloud Spanner instance.
+     * Cloud BigQuery instance.
      */
     instance: any
 
     /**
-     * Cloud Spanner database.
+     * Cloud BigQuery database.
      */
     instanceDatabase: any
 
@@ -62,7 +62,7 @@ export class BigQueryDriver implements Driver {
     /**
      * Connection options.
      */
-    options: SpannerConnectionOptions
+    options: BigQueryConnectionOptions
 
     /**
      * Indicates if replication is enabled.
@@ -82,19 +82,26 @@ export class BigQueryDriver implements Driver {
     /**
      * Gets list of supported column data types by a driver.
      *
-     * @see https://cloud.google.com/spanner/docs/reference/standard-sql/data-types
+     * @see https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
      */
     supportedDataTypes: ColumnType[] = [
         "bool",
         "int64",
         "float64",
         "numeric",
+        "bignumeric",
         "string",
         "json",
+        "struct",
+        "range",
         "bytes",
         "date",
+        "datetime",
+        "interval",
+        "time",
         "timestamp",
         "array",
+        "geography",
     ]
 
     /**
@@ -105,7 +112,7 @@ export class BigQueryDriver implements Driver {
     /**
      * Gets list of spatial column data types.
      */
-    spatialTypes: ColumnType[] = []
+    spatialTypes: ColumnType[] = ["geography"]
 
     /**
      * Gets list of column data types that support length by a driver.
@@ -113,7 +120,7 @@ export class BigQueryDriver implements Driver {
     withLengthColumnTypes: ColumnType[] = ["string", "bytes"]
 
     /**
-     * Gets list of column data types that support length by a driver.
+     * Gets list of column data types that support width by a driver.
      */
     withWidthColumnTypes: ColumnType[] = []
 
@@ -172,7 +179,7 @@ export class BigQueryDriver implements Driver {
      * Max length allowed by MySQL for aliases.
      * @see https://dev.mysql.com/doc/refman/5.5/en/identifiers.html
      */
-    maxAliasLength = 63
+    maxAliasLength = 300
 
     cteCapabilities: CteCapabilities = {
         enabled: true,
@@ -194,10 +201,10 @@ export class BigQueryDriver implements Driver {
 
     constructor(connection: Connection) {
         this.connection = connection
-        this.options = connection.options as SpannerConnectionOptions
+        this.options = connection.options as BigQueryConnectionOptions
         this.isReplicated = this.options.replication ? true : false
 
-        // load mysql package
+        // load bigwuery package
         this.loadDependencies()
     }
 
@@ -209,8 +216,7 @@ export class BigQueryDriver implements Driver {
      * Performs connection to the database.
      */
     async connect(): Promise<void> {
-        this.instance = this.spanner.instance(this.options.instanceId)
-        this.instanceDatabase = this.instance.database(this.options.databaseId)
+        return Promise.resolve()
     }
 
     /**
@@ -224,7 +230,7 @@ export class BigQueryDriver implements Driver {
      * Closes connection with the database.
      */
     async disconnect(): Promise<void> {
-        this.instanceDatabase.close()
+        return Promise.resolve()
     }
 
     /**
@@ -239,7 +245,7 @@ export class BigQueryDriver implements Driver {
      * Creates a query runner used to execute database queries.
      */
     createQueryRunner(mode: ReplicationMode) {
-        return new SpannerQueryRunner(this, mode)
+        return new BigQueryQueryRunner(this, mode)
     }
 
     /**
@@ -412,8 +418,7 @@ export class BigQueryDriver implements Driver {
         if (value === null || value === undefined) return value
 
         if (columnMetadata.type === "numeric") {
-            const lib = this.options.driver || PlatformTools.load("spanner")
-            return lib.Spanner.numeric(value)
+            return value
         } else if (columnMetadata.type === "date") {
             return DateUtils.mixedDateToDateString(value)
         } else if (columnMetadata.type === "json") {
@@ -493,8 +498,7 @@ export class BigQueryDriver implements Driver {
 
     /**
      * Normalizes "default" value of the column.
-     *
-     * Spanner does not support default values.
+     * TODO later
      */
     normalizeDefault(columnMetadata: ColumnMetadata): string | undefined {
         return columnMetadata.default === ""
@@ -715,7 +719,7 @@ export class BigQueryDriver implements Driver {
      * Returns true if driver supports uuid values generation on its own.
      */
     isUUIDGenerationSupported(): boolean {
-        return false
+        return true
     }
 
     /**
@@ -741,15 +745,16 @@ export class BigQueryDriver implements Driver {
      */
     protected loadDependencies(): void {
         try {
-            const lib = this.options.driver || PlatformTools.load("spanner")
-            this.spanner = new lib.Spanner({
+            const lib = this.options.driver || PlatformTools.load("bigquery")
+            this.bigquery = new lib.BigQuery({
                 projectId: this.options.projectId,
+                keyFile: this.options.keyFile,
             })
         } catch (e) {
             console.error(e)
             throw new DriverPackageNotInstalledError(
-                "Spanner",
-                "@google-cloud/spanner",
+                "BigQuery",
+                "@google-cloud/bigquery",
             )
         }
     }
